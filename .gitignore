@@ -48,6 +48,5 @@ web.config
 #testing
 testing/
 z_supporting/
-z_systemDocs/
 temp_sql_imports/
 
