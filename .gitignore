@@ -1,0 +1,46 @@
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.tox/
+.venv/
+env/
+venv/
+
+# Django
+db.sqlite3
+media/
+static_collected/
+staticfiles/ # Newer Django versions might use this instead of static_collected
+local_settings.py # Or any other file you use for local/sensitive settings
+*.log
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.bak
+*~
+.DS_Store
+
+# Virtual Environments (common names)
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Operating System Files
+.DS_Store
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Deployment
+.env
+/certs/
+/secrets/
+
+# Production
+web.config

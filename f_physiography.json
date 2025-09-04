@@ -1,0 +1,7 @@
+[
+    { "model": "mrv.Physiography", "fields": { "code":1, "name": "Terai (Including inner terai)", "ecological": "Terai" } },
+    { "model": "mrv.Physiography", "fields": { "code":2, "name": "Siwaliks/Churia", "ecological": "Terai" } },
+    { "model": "mrv.Physiography", "fields": { "code":3, "name": "Mid Hills", "ecological": "Hill" } },
+    { "model": "mrv.Physiography", "fields": { "code":4, "name": "High Mountain", "ecological": "Hill" } },
+    { "model": "mrv.Physiography", "fields": { "code":5, "name": "High Himal", "ecological": "Mountain" } }
+]

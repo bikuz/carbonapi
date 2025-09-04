@@ -1,0 +1,163 @@
+[
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":1,
+            "name": "Naslund",
+            "expression": "bh + d**2 / (a + b*d)**2" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":2,
+            "name": "Curtis",
+            "expression": "bh + a * (d / (1 + d))**b" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":3,
+            "name": "Michailoff",
+            "expression": "bh + a * exp(-b * d **(- 1))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":4,
+            "name": "Meyer",
+            "expression": "bh + a * (1 - exp(-b * d))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":5,
+            "name": "Power",
+            "expression": "bh + a * d**b" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":6,
+            "name": "Naslund2",
+            "expression": "bh + d**2 / (a + exp(b)* d)**2" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":7,
+            "name": "Naslund3",
+            "expression": "bh + d**2 / (exp(a) + b * d)**2" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":8,
+            "name": "Naslund4",
+            "expression": "bh + d**2 / (exp(a) + exp(b) * d)**2" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":9,
+            "name": "Michaelis-Menten",
+            "expression": "bh + a * d / (b + d)" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":10,
+            "name": "Michaelis-Menten2",
+            "expression": "bh + d / (a + b * d)" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":11,
+            "name": "Wykoff",
+            "expression": "bh + exp(a + b /( d + 1))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":12,
+            "name": "Prodan",
+            "expression": "bh + d**2 / (a + b * d + c * d**2)" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":13,
+            "name": "Logistic",
+            "expression": "bh + a / (1 + b * exp(-c * d))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":14,
+            "name": "Chapman-Richards",
+            "expression": "bh + a * (1 - exp(-b * d))**c" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":15,
+            "name": "Weibull",
+            "expression": "bh + a * (1 - exp(-b * d**c))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":16,
+            "name": "Gomperz",
+            "expression": "bh + a * exp(-b * exp(-c * d))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":17,
+            "name": "Sibbesen",
+            "expression": "bh + a * d ** (b * d**(-c))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":18,
+            "name": "Korf",
+            "expression": "bh + a * exp(-b * d**( - c))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":19,
+            "name": "Ratkowsky",
+            "expression": "bh + a * exp(-b /( d + c))" 
+        }
+    },
+    {
+        "model": "mrv.HDModel",
+        "fields": {
+            "code":20,
+            "name": "Hossfeld IV",
+            "expression": "bh + a / (1 + 1/(b * d**c))" 
+             
+        }
+    }
+]
