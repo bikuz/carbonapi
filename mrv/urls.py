@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import slanted_height_views
 
 app_name = 'mrv'
 
@@ -48,6 +49,11 @@ urlpatterns = [
     path('projects/<int:project_id>/hd-model/assign-models/', views.api_project_hd_model_assign_models, name='api_project_hd_model_assign_models'),
     path('projects/<int:project_id>/hd-model/unassigned-records/', views.api_project_hd_model_unassigned_records, name='api_project_hd_model_unassigned_records'),
     path('projects/<int:project_id>/hd-model/update-species-mapping/', views.api_project_hd_model_update_species_mapping, name='api_project_hd_model_update_species_mapping'),
+    path('projects/<int:project_id>/height-prediction/', views.api_project_height_prediction, name='api_project_height_prediction'),
+    path('projects/<int:project_id>/height-prediction/status/', views.api_project_height_prediction_status, name='api_project_height_prediction_status'),
+    path('projects/<int:project_id>/slanted-height-calculation/', slanted_height_views.api_project_slanted_height_calculation, name='api_project_slanted_height_calculation'),
+    path('projects/<int:project_id>/slanted-height-calculation/status/', slanted_height_views.api_project_slanted_height_calculation_status, name='api_project_slanted_height_calculation_status'),
+    path('projects/<int:project_id>/hd-relation/data/', views.api_project_hd_relation_data, name='api_project_hd_relation_data'),
     
     # Legacy endpoints (commented out for now)
     # path('height-diameter-modeling/', views.height_diameter_modeling, name='height_diameter_modeling'),

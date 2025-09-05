@@ -20,6 +20,10 @@ from mrv.data_import_utils import DataImportService, DataImportError
 from mrv.data_quality_utils import DataQualityService, DataQualityError
 from psycopg2.sql import SQL, Identifier
 from django.db import connections
+from sympy import symbols, exp, log, sqrt, parse_expr
+from sympy.core.sympify import SympifyError
+from django.conf import settings
+import math
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -420,322 +424,6 @@ def api_project_schema_info(request, project_id):
             'success': False,
             'error': str(e)
         }, status=500)
-
-# def height_diameter_modeling(request):
-#     """View for height-diameter modeling interface"""
-#     hd_service = HeightDiameterService()
-    
-#     if request.method == 'POST':
-#         action = request.POST.get('action')
-        
-#         if action == 'fit_models':
-#             try:
-#                 force_refit = request.POST.get('force_refit') == 'on'
-#                 results = hd_service.fit_species_models(force_refit=force_refit)
-                
-#                 fitted_count = sum(1 for r in results.values() if r['status'] == 'fitted')
-#                 failed_count = sum(1 for r in results.values() if r['status'] == 'failed')
-#                 skipped_count = sum(1 for r in results.values() if r['status'] == 'skipped')
-                
-#                 messages.success(request, 
-#                     f"Model fitting complete: {fitted_count} fitted, {failed_count} failed, {skipped_count} skipped")
-                
-#             except Exception as e:
-#                 messages.error(request, f"Error fitting models: {str(e)}")
-        
-#         elif action == 'predict_heights':
-#             try:
-#                 updated_count = hd_service.predict_heights_for_all_trees()
-#                 messages.success(request, f"Heights predicted for {updated_count} trees")
-                
-#             except Exception as e:
-#                 messages.error(request, f"Error predicting heights: {str(e)}")
-        
-#         return redirect('height_diameter_modeling')
-    
-#     # Get statistics for display
-#     try:
-#         species_stats = hd_service.get_species_statistics()
-#         species_stats_dict = species_stats.to_dict('records')
-#     except:
-#         species_stats_dict = []
-    
-#     # Get fitted models
-#     fitted_models = HeightDiameterModel.objects.filter(fitted_successfully=True)
-    
-#     context = {
-#         'species_stats': species_stats_dict,
-#         'fitted_models': fitted_models,
-#         'total_trees': TreeData.objects.count(),
-#         'trees_with_predicted_height': TreeData.objects.filter(height_predicted__isnull=False).count(),
-#     }
-    
-#     return render(request, 'forest/height_diameter_modeling.html', context)
-
-# def model_diagnostics(request, model_id):
-#     """View to show model diagnostics and plots"""
-#     try:
-#         hd_model_obj = HeightDiameterModel.objects.get(id=model_id)
-#         hd_service = HeightDiameterService()
-        
-#         # Get trees for this species with measured heights
-#         trees = TreeData.objects.filter(
-#             species_model_name=hd_model_obj.species_name,
-#             height_m__gt=0,
-#             crown_class__lt=6,
-#             sample_tree_type__in=[1, 2, 4, 5]
-#         )
-        
-#         if not trees.exists():
-#             messages.error(request, "No data available for diagnostics")
-#             return redirect('height_diameter_modeling')
-        
-#         # Prepare data for plotting
-#         d_values = [tree.d for tree in trees]
-#         h_observed = [tree.height_m for tree in trees]
-        
-#         # Get model info
-#         model_info = {
-#             'model_type': hd_model_obj.model_type,
-#             'params': hd_model_obj.get_parameters(),
-#             'fitted': True
-#         }
-        
-#         # Predict heights
-#         h_predicted = hd_service.hd_model.predict_heights(np.array(d_values), model_info)
-        
-#         # Create diagnostic plot
-#         plt.style.use('default')
-#         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-#         fig.suptitle(f'Height-Diameter Model Diagnostics: {hd_model_obj.species_name}', fontsize=14)
-        
-#         # Plot 1: Observed vs Model curve
-#         ax1 = axes[0, 0]
-#         ax1.scatter(d_values, h_observed, alpha=0.6, s=30, label='Observed')
-#         d_range = np.linspace(min(d_values), max(d_values), 100)
-#         h_curve = hd_service.hd_model.predict_heights(d_range, model_info)
-#         ax1.plot(d_range, h_curve, 'r-', linewidth=2, label=f'{model_info["model_type"].title()} model')
-#         ax1.set_xlabel('Diameter (cm)')
-#         ax1.set_ylabel('Height (m)')
-#         ax1.set_title('Height-Diameter Relationship')
-#         ax1.legend()
-#         ax1.grid(True, alpha=0.3)
-        
-#         # Plot 2: Residuals vs Predicted
-#         ax2 = axes[0, 1]
-#         residuals = np.array(h_observed) - h_predicted
-#         ax2.scatter(h_predicted, residuals, alpha=0.6, s=30)
-#         ax2.axhline(y=0, color='r', linestyle='--')
-#         ax2.set_xlabel('Predicted Height (m)')
-#         ax2.set_ylabel('Residuals (m)')
-#         ax2.set_title('Residual Plot')
-#         ax2.grid(True, alpha=0.3)
-        
-#         # Plot 3: Observed vs Predicted
-#         ax3 = axes[1, 0]
-#         ax3.scatter(h_observed, h_predicted, alpha=0.6, s=30)
-#         min_h, max_h = min(min(h_observed), min(h_predicted)), max(max(h_observed), max(h_predicted))
-#         ax3.plot([min_h, max_h], [min_h, max_h], 'r--', linewidth=2, label='1:1 line')
-#         ax3.set_xlabel('Observed Height (m)')
-#         ax3.set_ylabel('Predicted Height (m)')
-#         ax3.set_title('Observed vs Predicted')
-#         ax3.legend()
-#         ax3.grid(True, alpha=0.3)
-        
-#         # Plot 4: Model statistics
-#         ax4 = axes[1, 1]
-#         ax4.axis('off')
-#         stats_text = f"""Model Statistics:
-
-# Species: {hd_model_obj.species_name}
-# Model Type: {hd_model_obj.model_type.title()}
-# N Observations: {hd_model_obj.n_observations}
-# RMSE: {hd_model_obj.rmse:.3f} m
-# R²: {hd_model_obj.r_squared:.3f}
-
-# Parameters:
-# {', '.join([f'{p:.4f}' for p in hd_model_obj.get_parameters()])}
-
-# Fitted: {hd_model_obj.fitted_successfully}
-# Last Updated: {hd_model_obj.updated_at.strftime('%Y-%m-%d %H:%M')}"""
-        
-#         ax4.text(0.1, 0.9, stats_text, transform=ax4.transAxes, 
-#                 fontsize=10, verticalalignment='top', fontfamily='monospace')
-        
-#         plt.tight_layout()
-        
-#         # Convert plot to base64 string
-#         buffer = io.BytesIO()
-#         plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-#         buffer.seek(0)
-#         plot_data = buffer.getvalue()
-#         buffer.close()
-#         plt.close()
-        
-#         plot_base64 = base64.b64encode(plot_data).decode()
-        
-#         context = {
-#             'model': hd_model_obj,
-#             'plot_base64': plot_base64,
-#             'trees_count': trees.count(),
-#             'residual_stats': {
-#                 'mean': np.mean(residuals),
-#                 'std': np.std(residuals),
-#                 'min': np.min(residuals),
-#                 'max': np.max(residuals)
-#             }
-#         }
-        
-#         return render(request, 'forest/model_diagnostics.html', context)
-        
-#     except HeightDiameterModel.DoesNotExist:
-#         messages.error(request, "Model not found")
-#         return redirect('height_diameter_modeling')
-#     except Exception as e:
-#         messages.error(request, f"Error generating diagnostics: {str(e)}")
-#         return redirect('height_diameter_modeling')
-
-# @csrf_exempt
-# def api_predict_height(request):
-#     """API endpoint to predict height for given diameter and species"""
-#     if request.method == 'POST':
-#         try:
-#             data = json.loads(request.body)
-#             diameter = float(data['diameter'])
-#             species_name = data['species_name']
-            
-#             # Get fitted model
-#             model = HeightDiameterModel.objects.filter(
-#                 species_name=species_name,
-#                 fitted_successfully=True
-#             ).first()
-            
-#             if not model:
-#                 return JsonResponse({
-#                     'error': f'No fitted model available for species {species_name}',
-#                     'success': False
-#                 }, status=400)
-            
-#             # Predict height
-#             hd_service = HeightDiameterService()
-#             model_info = {
-#                 'model_type': model.model_type,
-#                 'params': model.get_parameters(),
-#                 'fitted': True
-#             }
-            
-#             predicted_height = hd_service.hd_model.predict_heights(
-#                 np.array([diameter]), model_info
-#             )[0]
-            
-#             return JsonResponse({
-#                 'predicted_height': float(predicted_height),
-#                 'model_type': model.model_type,
-#                 'species_name': species_name,
-#                 'model_rmse': model.rmse,
-#                 'model_r2': model.r_squared,
-#                 'success': True
-#             })
-            
-#         except Exception as e:
-#             return JsonResponse({
-#                 'error': str(e),
-#                 'success': False
-#             }, status=400)
-    
-#     return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-# def export_height_models(request):
-#     """Export height-diameter models to CSV"""
-#     hd_service = HeightDiameterService()
-    
-#     try:
-#         models_df = hd_service.export_height_diameter_models()
-        
-#         response = HttpResponse(content_type='text/csv')
-#         response['Content-Disposition'] = 'attachment; filename="height_diameter_models.csv"'
-        
-#         models_df.to_csv(response, index=False)
-#         return response
-        
-#     except Exception as e:
-#         messages.error(request, f"Error exporting models: {str(e)}")
-#         return redirect('height_diameter_modeling')
-
-# def import_tree_data_with_heights(request):
-#     """Import tree data and automatically fit height models"""
-#     if request.method == 'POST' and request.FILES.get('csv_file'):
-#         try:
-#             csv_file = request.FILES['csv_file']
-            
-#             # Read CSV
-#             df = pd.read_csv(csv_file)
-            
-#             # Validate required columns
-#             required_cols = ['col', 'row', 'plot_number', 'tree_no', 'diameter_p', 
-#                            'height_p', 'crown_class', 'species']
-#             missing_cols = [col for col in required_cols if col not in df.columns]
-            
-#             if missing_cols:
-#                 messages.error(request, f"Missing required columns: {', '.join(missing_cols)}")
-#                 return redirect('import_tree_data_with_heights')
-            
-#             # Clear existing data if requested
-#             if request.POST.get('clear_existing'):
-#                 TreeData.objects.all().delete()
-#                 HeightDiameterModel.objects.all().delete()
-            
-#             # Import tree data
-#             trees_created = 0
-#             for _, row in df.iterrows():
-#                 tree_data = {
-#                     'col': row['col'],
-#                     'row': row['row'],
-#                     'plot_number': str(row['plot_number']),
-#                     'tree_no': str(row['tree_no']),
-#                     'diameter_p': row['diameter_p'],
-#                     'height_p': row['height_p'],
-#                     'crown_class': row['crown_class'],
-#                     'species': str(row['species']),
-#                 }
-                
-#                 # Add optional fields
-#                 optional_fields = ['height_m', 'sample_tree_type']
-#                 for field in optional_fields:
-#                     if field in df.columns and pd.notna(row[field]):
-#                         tree_data[field] = row[field]
-                
-#                 tree, created = TreeData.objects.get_or_create(
-#                     col=tree_data['col'],
-#                     row=tree_data['row'],
-#                     plot_number=tree_data['plot_number'],
-#                     tree_no=tree_data['tree_no'],
-#                     defaults=tree_data
-#                 )
-                
-#                 if created:
-#                     trees_created += 1
-            
-#             messages.success(request, f"Imported {trees_created} trees")
-            
-#             # Automatically fit height models if requested
-#             if request.POST.get('auto_fit_models'):
-#                 hd_service = HeightDiameterService()
-#                 results = hd_service.fit_species_models()
-                
-#                 fitted_count = sum(1 for r in results.values() if r['status'] == 'fitted')
-#                 messages.success(request, f"Automatically fitted {fitted_count} height models")
-                
-#                 # Predict heights for all trees
-#                 updated_count = hd_service.predict_heights_for_all_trees()
-#                 messages.success(request, f"Predicted heights for {updated_count} trees")
-            
-#             return redirect('height_diameter_modeling')
-            
-#         except Exception as e:
-#             messages.error(request, f"Error importing data: {str(e)}")
-    
-#     return render(request, 'forest/import_tree_data_with_heights.html')
 
 # Data Import API Views
 @csrf_exempt
@@ -2067,6 +1755,375 @@ def api_project_hd_model_unassigned_records(request, project_id):
                 'phy_zone': phy_zone
             }
         })
+        
+    except Project.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Project not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+		
+		
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_project_height_prediction(request, project_id):
+    """API endpoint to run height prediction for trees using HD models"""
+    try:
+        project = Project.objects.get(id=project_id)
+        
+        # Get project schema name
+        schema_name = project.get_schema_name()
+        
+        with connections['default'].cursor() as cursor:
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(schema_name)))
+            
+            # Get request data to check for phy_zone filter
+            request_data = json.loads(request.body) if request.body else {}
+            phy_zone_filter = request_data.get('phy_zone')
+            
+            # Build the query with species_hd_model_map join
+            base_query = """
+                SELECT 
+                    t.calc_id,
+                    t.plot_code,
+                    t.species_code,
+                    s.species_name,
+                    t.dbh,
+                    t.hd_model_code,
+                    hd.expression,
+                    hd.name as model_name,
+                    t.phy_zone,
+                    shm.hd_a,
+                    shm.hd_b,
+                    shm.hd_c
+                FROM tree_biometric_calc t
+                LEFT JOIN public.forest_species s ON t.species_code = s.code
+                LEFT JOIN public.hd_model hd ON t.hd_model_code = hd.code
+                LEFT JOIN public.species_hd_model_map shm ON (
+                    t.species_code = shm.species_code 
+                    AND t.phy_zone = shm.physio_code
+                )
+                WHERE t.ignore = FALSE 
+                AND t.hd_model_code IS NOT NULL
+                AND t.dbh IS NOT NULL
+                AND t.dbh > 0
+            """
+            
+            # Add phy_zone filter if specified
+            if phy_zone_filter:
+                base_query += " AND t.phy_zone = %s"
+                cursor.execute(base_query + " ORDER BY t.plot_code, t.species_code", [phy_zone_filter])
+            else:
+                cursor.execute(base_query + " ORDER BY t.plot_code, t.species_code")
+            
+            trees_data = cursor.fetchall()
+            
+            if not trees_data:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No trees found with assigned HD models for height prediction'
+                }, status=400)
+            
+
+            # Prepare symbols for expression evaluation
+            d = symbols('d')
+            bh, a, b, c = symbols('bh a b c')
+            symbol_dict = {
+                'd': d,
+                'exp': exp,
+                'log': log,
+                'sqrt': sqrt,
+                'bh': bh,
+                'a': a,
+                'b': b,
+                'c': c
+            }
+            
+            updated_count = 0
+            results = []
+            errors = []
+            
+            for tree_data in trees_data:
+                calc_id, plot_code, species_code, species_name, dbh, hd_model_code, expression, model_name, phy_zone, hd_a, hd_b, hd_c = tree_data
+                
+                try:
+                    # Parse and evaluate the HD model expression
+                    expr = parse_expr(expression, local_dict=symbol_dict)
+                    
+                    # Use actual parameters from species_hd_model_map, with fallbacks
+                    params = {
+                        'a': float(hd_a) if hd_a is not None else 1.0,
+                        'b': float(hd_b) if hd_b is not None else 1.0,
+                        'c': float(hd_c) if hd_c is not None else 0.0,
+                        'bh': getattr(settings, 'BH', 1.3)
+                    }
+                    
+                    # Calculate predicted height
+                    predicted_height = float(expr.subs({'d': dbh, **params}).evalf())
+                    
+                    # Update the tree record with predicted height
+                    cursor.execute("""
+                        UPDATE tree_biometric_calc 
+                        SET height_predicted = %s, updated_date = CURRENT_TIMESTAMP
+                        WHERE calc_id = %s
+                    """, [predicted_height, calc_id])
+                    
+                    updated_count += 1
+                    
+                    results.append({
+                        'plot_code': plot_code,
+                        'species_code': species_code,
+                        'species_name': species_name or 'Unknown',
+                        'dbh': dbh,
+                        'height_predicted': predicted_height,
+                        'model_name': model_name,
+                        'phy_zone': phy_zone,
+                        'hd_a': params['a'],
+                        'hd_b': params['b'],
+                        'hd_c': params['c']
+                    })
+                    
+                except (SympifyError, Exception) as e:
+                    errors.append({
+                        'plot_code': plot_code,
+                        'species_code': species_code,
+                        'species_name': species_name or 'Unknown',
+                        'phy_zone': phy_zone,
+                        'error': str(e)
+                    })
+                    continue
+        
+        # Create appropriate message based on phy_zone filter
+        if phy_zone_filter:
+            message = f'Height prediction completed for phy_zone {phy_zone_filter}: {updated_count} trees updated'
+        else:
+            message = f'Height prediction completed for all zones: {updated_count} trees updated'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'updated_count': updated_count,
+            'total_trees': len(trees_data),
+            'errors_count': len(errors),
+            'phy_zone_filter': phy_zone_filter,
+            'results': results[:100],  # Limit results for response size
+            'errors': errors[:50] if errors else []  # Limit errors for response size
+        })
+        
+    except Project.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Project not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+		
+		
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_project_height_prediction_status(request, project_id):
+    """API endpoint to check height prediction status for a specific phy_zone"""
+    try:
+        project = Project.objects.get(id=project_id)
+        
+        # Get query parameters
+        phy_zone = request.GET.get('phy_zone')
+        
+        if not phy_zone:
+            return JsonResponse({
+                'success': False,
+                'error': 'phy_zone parameter is required'
+            }, status=400)
+        
+        # Get project schema name
+        schema_name = project.get_schema_name()
+        
+        with connections['default'].cursor() as cursor:
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(schema_name)))
+            
+            # Get total trees count for the phy_zone
+            cursor.execute("""
+                SELECT COUNT(*) 
+                FROM tree_biometric_calc 
+                WHERE phy_zone = %s 
+                AND ignore = FALSE 
+                AND hd_model_code IS NOT NULL
+                AND dbh IS NOT NULL
+                AND dbh > 0
+            """, [phy_zone])
+            total_trees = cursor.fetchone()[0]
+            
+            # Get trees with height_predicted (not null)
+            cursor.execute("""
+                SELECT COUNT(*) 
+                FROM tree_biometric_calc 
+                WHERE phy_zone = %s 
+                AND ignore = FALSE 
+                AND hd_model_code IS NOT NULL
+                AND dbh IS NOT NULL
+                AND dbh > 0
+                AND height_predicted IS NOT NULL
+            """, [phy_zone])
+            predicted_trees = cursor.fetchone()[0]
+            
+            # Get trees without height_predicted (null)
+            cursor.execute("""
+                SELECT COUNT(*) 
+                FROM tree_biometric_calc 
+                WHERE phy_zone = %s 
+                AND ignore = FALSE 
+                AND hd_model_code IS NOT NULL
+                AND dbh IS NOT NULL
+                AND dbh > 0
+                AND height_predicted IS NULL
+            """, [phy_zone])
+            unpredicted_trees = cursor.fetchone()[0]
+        
+        # Determine status
+        if total_trees == 0:
+            status = 'no_data'
+            message = 'No trees found for height prediction in this zone'
+        elif unpredicted_trees == 0:
+            status = 'complete'
+            message = f'Height prediction completed successfully for all {total_trees} trees'
+        elif predicted_trees == 0:
+            status = 'not_started'
+            message = f'Height prediction not yet started for {total_trees} trees'
+        else:
+            status = 'partial'
+            message = f'Height prediction partially completed: {predicted_trees} of {total_trees} trees predicted'
+        
+        return JsonResponse({
+            'success': True,
+            'status': status,
+            'message': message,
+            'total_trees': total_trees,
+            'predicted_trees': predicted_trees,
+            'unpredicted_trees': unpredicted_trees,
+            'phy_zone': phy_zone,
+            'project_id': project_id,
+            'project_name': project.name
+        })
+        
+    except Project.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Project not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_project_hd_relation_data(request, project_id):
+    """API endpoint to get H-D relation data for a specific phy_zone or plot_code"""
+    try:
+        project = Project.objects.get(id=project_id)
+        
+        # Get query parameters
+        plot_code = request.GET.get('plot_code')
+        phy_zone = request.GET.get('phy_zone')
+        
+        if not plot_code and not phy_zone:
+            return JsonResponse({
+                'success': False,
+                'error': 'Either plot_code or phy_zone parameter is required'
+            }, status=400)
+        
+        # Get project schema name
+        schema_name = project.get_schema_name()
+        
+        with connections['default'].cursor() as cursor:
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(schema_name)))
+            
+            # Build query based on available parameters
+            if plot_code:
+                # Get H-D relation data for the specified plot code
+                cursor.execute("""
+                    SELECT 
+                        t.plot_code,
+                        t.species_code,
+                        s.species_name,
+                        t.dbh,
+                        t.height_predicted,
+                        t.phy_zone,
+                        hd.name as model_name
+                    FROM tree_biometric_calc t
+                    LEFT JOIN public.forest_species s ON t.species_code = s.code
+                    LEFT JOIN public.hd_model hd ON t.hd_model_code = hd.code
+                    WHERE t.plot_code = %s 
+                    AND t.ignore = FALSE 
+                    AND t.height_predicted IS NOT NULL
+                    AND t.dbh IS NOT NULL
+                    AND t.dbh > 0
+                    ORDER BY t.species_code, t.dbh
+                """, [plot_code])
+            else:
+                # Get H-D relation data for the specified phy_zone
+                cursor.execute("""
+                    SELECT 
+                        t.plot_code,
+                        t.species_code,
+                        s.species_name,
+                        t.dbh,
+                        t.height_predicted,
+                        t.phy_zone,
+                        hd.name as model_name
+                    FROM tree_biometric_calc t
+                    LEFT JOIN public.forest_species s ON t.species_code = s.code
+                    LEFT JOIN public.hd_model hd ON t.hd_model_code = hd.code
+                    WHERE t.phy_zone = %s 
+                    AND t.ignore = FALSE 
+                    AND t.height_predicted IS NOT NULL
+                    AND t.dbh IS NOT NULL
+                    AND t.dbh > 0
+                    ORDER BY t.species_code, t.dbh
+                """, [phy_zone])
+            
+            chart_data = []
+            for row in cursor.fetchall():
+                chart_data.append({
+                    'plot_code': row[0],
+                    'species_code': row[1],
+                    'species_name': row[2] or 'Unknown',
+                    'dbh': float(row[3]),
+                    'height_predicted': float(row[4]),
+                    'phy_zone': row[5],
+                    'model_name': row[6] or 'Unknown Model'
+                })
+        
+        # Determine response parameters
+        if plot_code:
+            response_data = {
+                'success': True,
+                'chart_data': chart_data,
+                'plot_code': plot_code,
+                'total_trees': len(chart_data),
+                'project_id': project_id,
+                'project_name': project.name
+            }
+        else:
+            response_data = {
+                'success': True,
+                'chart_data': chart_data,
+                'phy_zone': phy_zone,
+                'total_trees': len(chart_data),
+                'project_id': project_id,
+                'project_name': project.name
+            }
+        
+        return JsonResponse(response_data)
         
     except Project.DoesNotExist:
         return JsonResponse({
