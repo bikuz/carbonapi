@@ -636,95 +636,100 @@ class SpeciesHDModelMap(models.Model):
 
     def __str__(self):
         return f"{self.species} - {self.hd_model} ({self.physiography})"
-    
 
-# class crownclass(models.Model):
+class Allometric(models.Model):
+    """Model for allometric equations used in biomass calculations"""
+    species = models.ForeignKey(
+        ForestSpecies,
+        on_delete=models.CASCADE,
+        to_field='code',
+        db_column='species_code',
+        help_text="Species code from forest_species table"
+    )
+    density = models.FloatField(
+        help_text="Wood density (g/cm³)"
+    )
+    
+    # Stem allometric parameters
+    stem_a = models.FloatField(
+        help_text="Stem allometric parameter 'a'"
+    )
+    stem_b = models.FloatField(
+        help_text="Stem allometric parameter 'b'"
+    )
+    stem_c = models.FloatField(
+        null=True, blank=True,
+        help_text="Stem allometric parameter 'c' (optional)"
+    )
+    
+    # Top 10% allometric parameters
+    top_10_a = models.FloatField(
+        help_text="Top 10% allometric parameter 'a'"
+    )
+    top_10_b = models.FloatField(
+        help_text="Top 10% allometric parameter 'b'"
+    )
+    
+    # Top 20% allometric parameters
+    top_20_a = models.FloatField(
+        help_text="Top 20% allometric parameter 'a'"
+    )
+    top_20_b = models.FloatField(
+        help_text="Top 20% allometric parameter 'b'"
+    )
+    
+    # Bark stem allometric parameters
+    bark_stem_a = models.FloatField(
+        help_text="Bark stem allometric parameter 'a'"
+    )
+    bark_stem_b = models.FloatField(
+        help_text="Bark stem allometric parameter 'b'"
+    )
+    
+    # Bark top 10% allometric parameters
+    bark_top_10_a = models.FloatField(
+        help_text="Bark top 10% allometric parameter 'a'"
+    )
+    bark_top_10_b = models.FloatField(
+        help_text="Bark top 10% allometric parameter 'b'"
+    )
+    
+    # Bark top 20% allometric parameters
+    bark_top_20_a = models.FloatField(
+        help_text="Bark top 20% allometric parameter 'a'"
+    )
+    bark_top_20_b = models.FloatField(
+        help_text="Bark top 20% allometric parameter 'b'"
+    )
+    
+    # Branch allometric parameters (small, medium, large)
+    branch_s = models.FloatField(
+        help_text="Small branch allometric parameter"
+    )
+    branch_m = models.FloatField(
+        help_text="Medium branch allometric parameter"
+    )
+    branch_l = models.FloatField(
+        help_text="Large branch allometric parameter"
+    )
+    
+    # Foliage allometric parameters (small, medium, large)
+    foliage_s = models.FloatField(
+        help_text="Small foliage allometric parameter"
+    )
+    foliage_m = models.FloatField(
+        help_text="Medium foliage allometric parameter"
+    )
+    foliage_l = models.FloatField(
+        help_text="Large foliage allometric parameter"
+    )
 
+    class Meta:
+        db_table = 'allometric'
+        verbose_name = 'Allometric Equation'
+        verbose_name_plural = 'Allometric Equations'
+        unique_together = (('species',),)  # One allometric model per species
 
-# class HeightDiameterModel(models.Model):
-#     """Model to store fitted height-diameter model parameters"""
-#     species_name = models.CharField(max_length=50, unique=True)
-#     model_type = models.CharField(max_length=20, choices=[
-#         ('curtis', 'Curtis'),
-#         ('naslund', 'Naslund'),
-#         ('michailoff', 'Michailoff')
-#     ])
-#     parameters = models.JSONField(help_text="Model parameters as JSON array")
-#     n_observations = models.IntegerField(help_text="Number of observations used for fitting")
-#     rmse = models.FloatField(help_text="Root Mean Square Error")
-#     r_squared = models.FloatField(help_text="R-squared value")
-#     fitted_successfully = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self):
+        return f"Allometric - {self.species.species_name} ({self.species.code})"
     
-#     class Meta:
-#         verbose_name = "Height-Diameter Model"
-#         verbose_name_plural = "Height-Diameter Models"
-    
-#     def __str__(self):
-#         return f"{self.species_name} - {self.model_type}"
-    
-#     def get_parameters(self):
-#         """Get parameters as Python list"""
-#         return json.loads(self.parameters) if isinstance(self.parameters, str) else self.parameters
-
-# class TreeData(models.Model):
-#     """Django model for tree data"""
-#     col = models.IntegerField()
-#     row = models.IntegerField()
-#     plot_number = models.CharField(max_length=50)
-#     tree_no = models.CharField(max_length=50)
-#     diameter_p = models.FloatField(help_text="Predicted diameter (cm)")
-#     height_m = models.FloatField(null=True, blank=True, help_text="Measured height (m)")
-#     height_p = models.FloatField(help_text="Predicted height (m)")
-#     crown_class = models.IntegerField(help_text="Crown class (1-8)")
-#     volume_ratio = models.FloatField(default=1.0, help_text="Volume ratio for broken trees")
-    
-#     # Computed fields
-#     d = models.FloatField(null=True, blank=True, help_text="Diameter used for calculations")
-#     h = models.FloatField(null=True, blank=True, help_text="Height used for calculations")
-    
-#     height_predicted = models.FloatField(null=True, blank=True, help_text="Height predicted by H-D model")
-#     species_model_name = models.CharField(max_length=50, null=True, blank=True, help_text="Species group for modeling")
-    
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-    
-#     class Meta:
-#         unique_together = ['col', 'row', 'plot_number', 'tree_no']
-#         indexes = [
-#             models.Index(fields=['crown_class']),
-#             models.Index(fields=['plot_number']),
-#         ]
-    
-#     def get_species_model_name(self):
-#         """Get species model name based on species code"""
-#         species_mapping = {
-#             "6615": "Shorea", "6660": "Terminalia", "6651": "Syzygium",
-#             "6063": "Acacia", "6089": "Adina", "6113": "Anogeissus",
-#             "6147": "Buchanania", "6175": "Castanopsis", "6176": "Castanopsis", 
-#             "6177": "Castanopsis", "6207": "Cleistocalyx", "6235": "Dalbergia",
-#             "6237": "Dalbergia", "6239": "Dalbergia", "6240": "Dalbergia",
-#             "6249": "Dillenia", "6250": "Dillenia", "6246": "Desmodium",
-#             "6349": "Hymenodictyon", "6513": "Pinus", "6609": "Schima",
-#             "6369": "Lagerstromia", "6446": "Miliusa", "6419": "Mallotus",
-#             "6611": "Semecarpus", "6676": "Trewia"
-#         }
-#         return species_mapping.get(str(self.species), "Misc")
-    
-#     # def save(self, *args, **kwargs):
-#     #     # Set computed fields
-#     #     self.d = self.diameter_p
-#     #     if self.height_m and self.height_m > 0 and self.crown_class < 6:
-#     #         self.h = self.height_m
-#     #     else:
-#     #         self.h = self.height_p
-#     #     super().save(*args, **kwargs)
-
-#     def save(self, *args, **kwargs):
-#         # Set species model name
-#         self.species_model_name = self.get_species_model_name()
-#         super().save(*args, **kwargs)
-    
-#     def __str__(self):
-#         return f"Tree {self.tree_no} - Plot {self.plot_number}"

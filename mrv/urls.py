@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import slanted_height_views
+from . import volume_ratio_views
 
 app_name = 'mrv'
 
@@ -54,6 +55,10 @@ urlpatterns = [
     path('projects/<int:project_id>/slanted-height-calculation/', slanted_height_views.api_project_slanted_height_calculation, name='api_project_slanted_height_calculation'),
     path('projects/<int:project_id>/slanted-height-calculation/status/', slanted_height_views.api_project_slanted_height_calculation_status, name='api_project_slanted_height_calculation_status'),
     path('projects/<int:project_id>/hd-relation/data/', views.api_project_hd_relation_data, name='api_project_hd_relation_data'),
+    
+    # Volume Ratio Calculation API endpoints
+    path('projects/<int:project_id>/volume-ratio-calculation/', volume_ratio_views.api_project_volume_ratio_calculation, name='api_project_volume_ratio_calculation'),
+    path('projects/<int:project_id>/volume-ratio-calculation/status/', volume_ratio_views.api_project_volume_ratio_status, name='api_project_volume_ratio_status'),
     
     # Legacy endpoints (commented out for now)
     # path('height-diameter-modeling/', views.height_diameter_modeling, name='height_diameter_modeling'),

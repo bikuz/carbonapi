@@ -1401,7 +1401,9 @@ def api_project_hd_model_physiography_summary(request, project_id):
                     COUNT(t.tree_no) AS tree_count,
                     COUNT(CASE WHEN t.hd_model_code IS NOT NULL THEN 1 END) AS assigned_hd_model_count,
                     COUNT(CASE WHEN t.hd_model_code IS NULL THEN 1 END) AS unassigned_hd_model_count,
-                    COUNT(DISTINCT CASE WHEN t.hd_model_code IS NULL THEN t.species_code END) AS unassigned_species_count
+                    COUNT(DISTINCT CASE WHEN t.hd_model_code IS NULL THEN t.species_code END) AS unassigned_species_count,
+                    COUNT(CASE WHEN t.crown_class = 6 THEN 1 END) AS broken_trees,
+                    COUNT(CASE WHEN t.crown_class != 6 OR t.crown_class IS NULL THEN 1 END) AS non_broken_trees
                 FROM tree_biometric_calc t
                 LEFT JOIN public.physiography p ON t.phy_zone = p.code
                 WHERE t.ignore = FALSE
@@ -1418,7 +1420,9 @@ def api_project_hd_model_physiography_summary(request, project_id):
                     'tree_count': row[3],
                     'assigned_hd_model_count': row[4],
                     'unassigned_hd_model_count': row[5],
-                    'unassigned_species_count': row[6]
+                    'unassigned_species_count': row[6],
+                    'broken_trees': row[7],
+                    'non_broken_trees': row[8]
                 })
         
         return JsonResponse({
