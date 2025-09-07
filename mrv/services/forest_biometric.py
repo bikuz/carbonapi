@@ -1,8 +1,6 @@
 import math
 import numpy as np
-from typing import List
- 
-from mrv.models import TreeData
+from typing import List, Dict, Any
 
 
 class ForestBiometricsService:
@@ -48,14 +46,14 @@ class ForestBiometricsService:
             volume = 0
         return volume
     
-    def calculate_volume_ratio(self, tree: TreeData) -> float:
+    def calculate_volume_ratio(self, dbh: float, height_measured: float, height_predicted: float, crown_class: int) -> float:
         """Calculate volume ratio for a single tree"""
-        if tree.crown_class != 6:
+        if crown_class != 6:
             return 1.0
         
-        d13 = tree.d
-        h = tree.h
-        height_p = tree.height_p
+        d13 = dbh
+        h = height_measured
+        height_p = height_predicted
         
         # Case 1: measured height below modeled
         if h < height_p and h > 0:
@@ -80,15 +78,47 @@ class ForestBiometricsService:
             return v_t_actual / v_t_height_p
         return 1.0
     
-    def process_broken_trees(self) -> int:
-        """Process all broken trees and update their volume ratios"""
-        broken_trees = TreeData.objects.filter(crown_class=6)
-        updated_count = 0
-        
-        for tree in broken_trees:
-            volume_ratio = self.calculate_volume_ratio(tree)
-            tree.volume_ratio = volume_ratio
-            tree.save()
-            updated_count += 1
-        
-        return updated_count
+    def calculate_tree_biomass(self, dbh: float, height: float, volume_ratio: float, allometric) -> Dict[str, float]:
+        """Calculate biomass components for a single tree using allometric equations"""
+        try:
+            # Calculate stem biomass (kg)
+            stem_biomass = allometric.stem_a * (dbh ** allometric.stem_b) * (height ** (allometric.stem_c or 1.0))
+            
+            # Apply volume ratio for broken trees
+            stem_biomass *= volume_ratio
+            
+            # Calculate branch biomass using ratios
+            branch_biomass = stem_biomass * (allometric.branch_s + allometric.branch_m + allometric.branch_l)
+            
+            # Calculate foliage biomass using ratios
+            foliage_biomass = stem_biomass * (allometric.foliage_s + allometric.foliage_m + allometric.foliage_l)
+            
+            # Calculate total above-ground biomass (fresh weight)
+            total_biomass_ad = stem_biomass + branch_biomass + foliage_biomass
+            
+            # Calculate oven-dry biomass using wood density
+            # Assuming 50% moisture content for fresh weight to oven-dry conversion
+            total_biomass_od = total_biomass_ad * 0.5
+            
+            # Calculate carbon content (assuming 47% carbon fraction)
+            carbon_content = total_biomass_od * 0.47
+            
+            return {
+                'stem_kg_tree': stem_biomass,
+                'branch_kg_tree': branch_biomass,
+                'foliage_kg_tree': foliage_biomass,
+                'total_biomass_ad_tree': total_biomass_ad,
+                'total_biomass_od_tree': total_biomass_od,
+                'carbon_kg_tree': carbon_content
+            }
+            
+        except Exception as e:
+            # Return zero values if calculation fails
+            return {
+                'stem_kg_tree': 0.0,
+                'branch_kg_tree': 0.0,
+                'foliage_kg_tree': 0.0,
+                'total_biomass_ad_tree': 0.0,
+                'total_biomass_od_tree': 0.0,
+                'carbon_kg_tree': 0.0
+            }

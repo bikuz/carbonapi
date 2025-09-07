@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import slanted_height_views
 from . import volume_ratio_views
+from . import carbon_calc_views
 
 app_name = 'mrv'
 
@@ -59,6 +60,14 @@ urlpatterns = [
     # Volume Ratio Calculation API endpoints
     path('projects/<int:project_id>/volume-ratio-calculation/', volume_ratio_views.api_project_volume_ratio_calculation, name='api_project_volume_ratio_calculation'),
     path('projects/<int:project_id>/volume-ratio-calculation/status/', volume_ratio_views.api_project_volume_ratio_status, name='api_project_volume_ratio_status'),
+    
+    # Carbon Calculation API endpoints
+    path('allometric-models/', carbon_calc_views.api_allometric_models, name='api_allometric_models'),
+    path('projects/<int:project_id>/allometric-assignment-status/', carbon_calc_views.api_project_allometric_assignment_status, name='api_project_allometric_assignment_status'),
+    path('projects/<int:project_id>/allometric-assignment/', carbon_calc_views.api_project_allometric_assignment, name='api_project_allometric_assignment'),
+    path('projects/<int:project_id>/save-allometric-assignments/', carbon_calc_views.api_save_allometric_assignments, name='api_save_allometric_assignments'),
+    path('projects/<int:project_id>/biomass-calculation-status/', carbon_calc_views.api_project_biomass_calculation_status, name='api_project_biomass_calculation_status'),
+    path('projects/<int:project_id>/biomass-calculation/', carbon_calc_views.api_project_biomass_calculation, name='api_project_biomass_calculation'),
     
     # Legacy endpoints (commented out for now)
     # path('height-diameter-modeling/', views.height_diameter_modeling, name='height_diameter_modeling'),

@@ -160,6 +160,7 @@ class Project(models.Model):
                     heigth_calculated REAL,
                     height_predicted REAL,
                     volume_ratio REAL,
+                    vol_eqn_id BIGINT,
                     exp_fa REAL,
                     no_trees_per_ha REAL,
                     ba_per_sqm REAL,
