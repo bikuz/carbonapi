@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -82,21 +82,21 @@ WSGI_APPLICATION = 'carbonapi.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'NFC_db',  # Main database for data analysis
-        'USER': 'postgres',
+        'NAME': config("POSTGRES_DB"),  # Main database for data analysis
+        'USER': config("POSTGRES_USER"),
         # 'PASSWORD': 'P@ssw0rd',
-        'PASSWORD': 'admin123##',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'PASSWORD': config("POSTGRES_PASSWORD"),
+        'HOST': config("POSTGRES_HOST"),
+        'PORT': config("POSTGRES_PORT"),
     },
     'nfi': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'NFI_tables',  # Database for OpenForis imports
-        'USER': 'postgres',
+        'NAME': config("POSTGRES_DB"),  # Database for OpenForis imports
+        'USER': config("POSTGRES_USER"),
         # 'PASSWORD': 'P@ssw0rd',
-        'PASSWORD': 'admin123##',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'PASSWORD': config("POSTGRES_PASSWORD"),
+        'HOST': config("POSTGRES_HOST"),
+        'PORT': config("POSTGRES_PORT"),
     }
 }
 
