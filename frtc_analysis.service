@@ -1,0 +1,22 @@
+[Unit]
+Description=FRTC Analysis WSGI API daemon
+After=network.target
+
+[Service]
+User=ftrc
+Group=frtc 
+
+# Environment Variables
+EnvironmentFile=/home/frtc/webapp/carbonapi/.env
+
+WorkingDirectory=/home/frtc/webapp/carbonapi
+ExecStart=/home/frtc/webapp/carbonapi/.venv/bin/gunicorn --access-logfile - --workers 1 --bind unix:/home/frtc/webapp/carbonapi/carbonapi.sock carbonapi.wsgi:application
+
+
+
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
