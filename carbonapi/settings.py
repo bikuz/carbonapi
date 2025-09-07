@@ -84,7 +84,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'NFC_db',  # Main database for data analysis
         'USER': 'postgres',
-        'PASSWORD': 'P@ssw0rd',
+        # 'PASSWORD': 'P@ssw0rd',
+        'PASSWORD': 'admin123##',
         'HOST': 'localhost',
         'PORT': '5432',
     },
@@ -92,7 +93,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'NFI_tables',  # Database for OpenForis imports
         'USER': 'postgres',
-        'PASSWORD': 'P@ssw0rd',
+        # 'PASSWORD': 'P@ssw0rd',
+        'PASSWORD': 'admin123##',
         'HOST': 'localhost',
         'PORT': '5432',
     }
