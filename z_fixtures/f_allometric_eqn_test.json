@@ -4266,7 +4266,7 @@
   {
     "model": "mrv.allometric",
     "fields": {
-      "species": -9999,
+      "species": 9999,
       "density": 450.0,
       "stem_a": -2.5293,
       "stem_b": 1.7815,
