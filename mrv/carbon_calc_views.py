@@ -6,9 +6,208 @@ from django.conf import settings
 import json
 import logging
 from .models import Project, Physiography, ForestSpecies, Allometric
-from .services.forest_biometric import ForestBiometricsService
+import math
 
 logger = logging.getLogger(__name__)
+
+def determine_height_to_use(crown_class, height_measured, height_predicted):
+    """
+    Determine the height to use for biomass calculation based on tree condition:
+    • If the tree is broken (crown_class == 6) and its predicted height (Pre_ht) is less than its measured height (height), use height × 1.1
+    • Otherwise, use the measured height
+    • If no height was measured (or it was below 1.3m), use the predicted height Pre_ht
+    """
+    try:
+        # Convert to float if they are not None
+        height_measured_float = float(height_measured) if height_measured is not None else None
+        height_predicted_float = float(height_predicted) if height_predicted is not None else None
+        crown_class_int = int(crown_class) if crown_class is not None else None
+        
+        # If no height was measured or it was below 1.3m, use predicted height
+        if height_measured_float is None or height_measured_float < 1.3:
+            return height_predicted_float if height_predicted_float is not None else 0
+        
+        # If tree is broken (crown_class == 6) and predicted height is less than measured height
+        if crown_class_int == 6 and height_predicted_float is not None and height_predicted_float < height_measured_float:
+            return height_measured_float * 1.1
+        
+        # Otherwise, use the measured height
+        return height_measured_float
+        
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Error determining height to use: {str(e)}. Using predicted height as fallback.")
+        return float(height_predicted) if height_predicted is not None else 0
+
+def calculate_tree_biomass(dbh, height_predicted, volume_ratio, allometric_data, crown_class=None, height_measured=None):
+    """
+    Calculate biomass and carbon for a single tree based on the 5-step process:
+    1. Determine height to use
+    2. Calculate expansion factor
+    3. Calculate tree volume and biomass
+    4. Calculate branch and foliage biomass
+    5. Scale up to per-hectare and convert to carbon
+    """
+    try:
+        # Step 1: Determine height to use (height_use)
+        height_use = determine_height_to_use(crown_class, height_measured, height_predicted)
+        
+        # Step 2: Calculate expansion factor (exp_fa)
+        # Based on tree's diameter at breast height (dbh)
+        if dbh < 10:
+            exp_fa = 198.94
+        elif dbh < 20:
+            exp_fa = 49.74
+        elif dbh < 30:
+            exp_fa = 14.15
+        else:
+            exp_fa = 7.96
+        
+        # Step 3: Calculate tree volume and biomass
+        # Basal Area (BA_tree_sqm)
+        ba_tree_sqm = (math.pi * dbh * dbh) / 40000
+        
+        # Stem Volume (volume_cum_tree)
+        if allometric_data[2] is not None and allometric_data[3] is not None:  # stem_a and stem_b
+            if allometric_data[4] is not None:  # stem_c available
+                stem_volume = math.exp(allometric_data[2] + allometric_data[3] * math.log(dbh) + allometric_data[4] * math.log(height_use)) / 1000
+            else:
+                stem_volume = math.exp(allometric_data[2] + allometric_data[3] * math.log(dbh)) / 1000
+        else:
+            stem_volume = 0
+        
+        # Max Volume (form factor 0.7)
+        max_volume = ba_tree_sqm * height_use * 0.7
+        
+        # Volume Correction using volume_ratio
+        if volume_ratio and volume_ratio > 0:
+            volume_final_cum_tree = stem_volume * volume_ratio
+        else:
+            volume_final_cum_tree = stem_volume
+        
+        # Ensure volume doesn't exceed max volume
+        if volume_final_cum_tree > max_volume:
+            volume_final_cum_tree = max_volume
+        
+        # Stem Biomass (kg per tree)
+        density = allometric_data[1] if allometric_data[1] else 0
+        stem_kg_tree = volume_final_cum_tree * density
+        
+        # Step 4: Calculate branch and foliage biomass
+        # Interpolate branch and foliage ratios based on diameter
+        branch_ratio = interpolate_ratio(dbh, allometric_data[15], allometric_data[16], allometric_data[17])  # branch_s, branch_m, branch_l
+        foliage_ratio = interpolate_ratio(dbh, allometric_data[18], allometric_data[19], allometric_data[20])  # foliage_s, foliage_m, foliage_l
+        
+        # Branch and foliage biomass
+        branch_kg_tree = stem_kg_tree * branch_ratio if branch_ratio else 0
+        foliage_kg_tree = stem_kg_tree * foliage_ratio if foliage_ratio else 0
+        
+        # Step 5: Scale up to per-hectare and convert to carbon
+        # Calculate additional fields
+        
+        # Basal area per hectare
+        ba_per_ha = ba_tree_sqm * exp_fa
+        
+        # Volume per hectare
+        volume_final_cum_ha = volume_final_cum_tree * exp_fa
+        
+        # Volume BA tree (basal area * height)
+        volume_ba_tree = ba_tree_sqm * height_use
+        
+        # Total tree biomass (air-dry)
+        total_biomass_ad_tree = stem_kg_tree + branch_kg_tree + foliage_kg_tree
+        
+        # Biomass per hectare (air-dry)
+        total_biomass_ad_ton_ha = (total_biomass_ad_tree * exp_fa) / 1000
+        
+        # Total biomass air-dry (same as above, for consistency)
+        total_bio_ad = total_biomass_ad_ton_ha
+        
+        # Biomass per hectare (oven-dry) - convert from air-dry
+        total_biomass_od_ton_ha = total_biomass_ad_ton_ha / 1.1
+        
+        # Carbon per hectare (47% carbon fraction)
+        carbon_ton_ha = total_biomass_od_ton_ha * 0.47
+        
+        # Carbon per tree (kg)
+        carbon_kg_tree = (carbon_ton_ha * 1000) / exp_fa
+        
+        # Per hectare values
+        stem_ton_ha = (stem_kg_tree * exp_fa) / 1000
+        branch_ton_ha = (branch_kg_tree * exp_fa) / 1000
+        foliage_ton_ha = (foliage_kg_tree * exp_fa) / 1000
+        
+        return {
+            'exp_fa': exp_fa,
+            'ba_per_sqm': ba_tree_sqm,
+            'ba_per_ha': ba_per_ha,
+            'volume_cum_tree': stem_volume,
+            'volume_ba_tree': volume_ba_tree,
+            'volume_final_cum_tree': volume_final_cum_tree,
+            'volume_final_cum_ha': volume_final_cum_ha,
+            'branch_ratio': branch_ratio,
+            'branch_ratio_final': branch_ratio,
+            'foliage_ratio': foliage_ratio,
+            'foliage_ratio_final': foliage_ratio,
+            'stem_kg_tree': stem_kg_tree,
+            'branch_kg_tree': branch_kg_tree,
+            'foliage_kg_tree': foliage_kg_tree,
+            'stem_ton_ha': stem_ton_ha,
+            'branch_ton_ha': branch_ton_ha,
+            'foliage_ton_ha': foliage_ton_ha,
+            'total_biomass_ad_tree': total_biomass_ad_tree,
+            'total_biom_ad_ton_ha': total_biomass_ad_ton_ha,
+            'total_bio_ad': total_bio_ad,
+            'total_biomass_od_tree': total_biomass_ad_tree / 1.1,
+            'total_biom_od_ton_ha': total_biomass_od_ton_ha,
+            'carbon_kg_tree': carbon_kg_tree,
+            'carbon_ton_ha': carbon_ton_ha
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating tree biomass: {str(e)}")
+        return {
+            'exp_fa': 0,
+            'ba_per_sqm': 0,
+            'ba_per_ha': 0,
+            'volume_cum_tree': 0,
+            'volume_ba_tree': 0,
+            'volume_final_cum_tree': 0,
+            'volume_final_cum_ha': 0,
+            'branch_ratio': 0,
+            'branch_ratio_final': 0,
+            'foliage_ratio': 0,
+            'foliage_ratio_final': 0,
+            'stem_kg_tree': 0,
+            'branch_kg_tree': 0,
+            'foliage_kg_tree': 0,
+            'stem_ton_ha': 0,
+            'branch_ton_ha': 0,
+            'foliage_ton_ha': 0,
+            'total_biomass_ad_tree': 0,
+            'total_biom_ad_ton_ha': 0,
+            'total_bio_ad': 0,
+            'total_biomass_od_tree': 0,
+            'total_biom_od_ton_ha': 0,
+            'carbon_kg_tree': 0,
+            'carbon_ton_ha': 0
+        }
+
+def interpolate_ratio(dbh, small_ratio, medium_ratio, large_ratio):
+    """
+    Interpolate branch/foliage ratio based on diameter
+    Small: < 10 cm, Medium: 10-20 cm, Large: > 20 cm
+    """
+    if not all([small_ratio, medium_ratio, large_ratio]):
+        return 0
+    
+    if dbh < 10:
+        return small_ratio
+    elif dbh < 20:
+        # Linear interpolation between small and medium
+        return small_ratio + (medium_ratio - small_ratio) * (dbh - 10) / 10
+    else:
+        # Linear interpolation between medium and large
+        return medium_ratio + (large_ratio - medium_ratio) * (dbh - 20) / 10
 
 @csrf_exempt
 @require_http_methods(["GET"])
@@ -381,46 +580,54 @@ def api_project_allometric_assignment(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_project_biomass_calculation(request, project_id):
-    """Calculate biomass and carbon for all trees in the project"""
+    """Calculate biomass and carbon for all trees in the project or a specific zone"""
     try:
         project = Project.objects.get(id=project_id)
         schema_name = project.get_schema_name()
+        
+        # Parse request data to check for phy_zone parameter
+        data = json.loads(request.body) if request.body else {}
+        phy_zone = data.get('phy_zone')
         
         with connection.cursor() as cursor:
             # Set search path to project schema for tree data
             cursor.execute("SET search_path TO %s", [schema_name])
             
-            # Get all trees that need biomass calculation, including vol_eqn_id
-            cursor.execute("""
+            # Build query with optional phy_zone filter
+            base_query = """
                 SELECT 
                     calc_id, species_code, dbh, height_predicted, volume_ratio,
-                    exp_fa, no_trees_per_ha, vol_eqn_id
+                    exp_fa, no_trees_per_ha, vol_eqn_id, crown_class, height
                 FROM tree_biometric_calc
                 WHERE ignore = FALSE 
                 AND crown_class < 7
                 AND dbh IS NOT NULL 
                 AND height_predicted IS NOT NULL
                 AND volume_ratio IS NOT NULL
-            """)
+            """
+            
+            if phy_zone is not None:
+                base_query += " AND phy_zone = %s"
+                cursor.execute(base_query, [phy_zone])
+            else:
+                cursor.execute(base_query)
             
             trees_data = cursor.fetchall()
             
             if not trees_data:
+                zone_message = f' for zone {phy_zone}' if phy_zone is not None else ''
                 return JsonResponse({
                     'success': True,
-                    'message': 'No trees found for biomass calculation',
+                    'message': f'No trees found for biomass calculation{zone_message}',
                     'total_trees': 0,
                     'calculated_trees': 0
                 })
-            
-            # Initialize forest biometric service
-            forest_service = ForestBiometricsService()
             
             calculated_count = 0
             errors = []
             
             for tree_data in trees_data:
-                calc_id, species_code, dbh, height_predicted, volume_ratio, exp_fa, no_trees_per_ha, vol_eqn_id = tree_data
+                calc_id, species_code, dbh, height_predicted, volume_ratio, exp_fa, no_trees_per_ha, vol_eqn_id, crown_class, height_measured = tree_data
                 
                 try:
                     # Get allometric equation using vol_eqn_id if available, otherwise fallback to species_code
@@ -454,85 +661,71 @@ def api_project_biomass_calculation(request, project_id):
                             errors.append(f"Species {species_code}: No allometric equation found")
                         continue
                     
-                    # Create a simple object to hold allometric data
-                    allometric = type('AllometricData', (), {
-                        'species_code': allometric_data[0],
-                        'density': allometric_data[1],
-                        'stem_a': allometric_data[2],
-                        'stem_b': allometric_data[3],
-                        'stem_c': allometric_data[4],
-                        'top_10_a': allometric_data[5],
-                        'top_10_b': allometric_data[6],
-                        'top_20_a': allometric_data[7],
-                        'top_20_b': allometric_data[8],
-                        'bark_stem_a': allometric_data[9],
-                        'bark_stem_b': allometric_data[10],
-                        'bark_top_10_a': allometric_data[11],
-                        'bark_top_10_b': allometric_data[12],
-                        'bark_top_20_a': allometric_data[13],
-                        'bark_top_20_b': allometric_data[14],
-                        'branch_s': allometric_data[15],
-                        'branch_m': allometric_data[16],
-                        'branch_l': allometric_data[17],
-                        'foliage_s': allometric_data[18],
-                        'foliage_m': allometric_data[19],
-                        'foliage_l': allometric_data[20]
-                    })()
-                    
-                    # Calculate biomass components
-                    biomass_results = forest_service.calculate_tree_biomass(
+                    # Calculate biomass components using our custom function
+                    biomass_results = calculate_tree_biomass(
                         dbh=dbh,
-                        height=height_predicted,
+                        height_predicted=height_predicted,
                         volume_ratio=volume_ratio,
-                        allometric=allometric
+                        allometric_data=allometric_data,
+                        crown_class=crown_class,
+                        height_measured=height_measured
                     )
                     
-                    # Calculate per hectare values
-                    if exp_fa and no_trees_per_ha:
-                        biomass_per_ha = {
-                            'stem_ton_ha': biomass_results['stem_kg_tree'] * no_trees_per_ha / 1000,
-                            'branch_ton_ha': biomass_results['branch_kg_tree'] * no_trees_per_ha / 1000,
-                            'foliage_ton_ha': biomass_results['foliage_kg_tree'] * no_trees_per_ha / 1000,
-                            'total_biomass_ad_ton_ha': biomass_results['total_biomass_ad_tree'] * no_trees_per_ha / 1000,
-                            'carbon_ton_ha': biomass_results['carbon_kg_tree'] * no_trees_per_ha / 1000
-                        }
-                    else:
-                        biomass_per_ha = {
-                            'stem_ton_ha': 0,
-                            'branch_ton_ha': 0,
-                            'foliage_ton_ha': 0,
-                            'total_biomass_ad_ton_ha': 0,
-                            'carbon_ton_ha': 0
-                        }
                     
                     # Update tree record with biomass calculations
                     cursor.execute("""
                         UPDATE tree_biometric_calc SET
+                            exp_fa = %s,
+                            ba_per_sqm = %s,
+                            ba_per_ha = %s,
+                            volume_cum_tree = %s,
+                            volume_ba_tree = %s,
+                            volume_final_cum_tree = %s,
+                            volume_final_cum_ha = %s,
+                            branch_ratio = %s,
+                            branch_ratio_final = %s,
+                            foliage_ratio = %s,
+                            foliage_ratio_final = %s,
                             stem_kg_tree = %s,
                             branch_kg_tree = %s,
                             foliage_kg_tree = %s,
-                            total_biomass_ad_tree = %s,
-                            total_biomass_od_tree = %s,
-                            carbon_kg_tree = %s,
                             stem_ton_ha = %s,
                             branch_ton_ha = %s,
                             foliage_ton_ha = %s,
+                            total_biomass_ad_tree = %s,
                             total_biom_ad_ton_ha = %s,
+                            total_bio_ad = %s,
+                            total_biomass_od_tree = %s,
+                            total_biom_od_ton_ha = %s,
+                            carbon_kg_tree = %s,
                             carbon_ton_ha = %s,
                             updated_date = CURRENT_TIMESTAMP
                         WHERE calc_id = %s
                     """, [
+                        biomass_results['exp_fa'],
+                        biomass_results['ba_per_sqm'],
+                        biomass_results['ba_per_ha'],
+                        biomass_results['volume_cum_tree'],
+                        biomass_results['volume_ba_tree'],
+                        biomass_results['volume_final_cum_tree'],
+                        biomass_results['volume_final_cum_ha'],
+                        biomass_results['branch_ratio'],
+                        biomass_results['branch_ratio_final'],
+                        biomass_results['foliage_ratio'],
+                        biomass_results['foliage_ratio_final'],
                         biomass_results['stem_kg_tree'],
                         biomass_results['branch_kg_tree'],
                         biomass_results['foliage_kg_tree'],
+                        biomass_results['stem_ton_ha'],
+                        biomass_results['branch_ton_ha'],
+                        biomass_results['foliage_ton_ha'],
                         biomass_results['total_biomass_ad_tree'],
+                        biomass_results['total_biom_ad_ton_ha'],
+                        biomass_results['total_bio_ad'],
                         biomass_results['total_biomass_od_tree'],
+                        biomass_results['total_biom_od_ton_ha'],
                         biomass_results['carbon_kg_tree'],
-                        biomass_per_ha['stem_ton_ha'],
-                        biomass_per_ha['branch_ton_ha'],
-                        biomass_per_ha['foliage_ton_ha'],
-                        biomass_per_ha['total_biomass_ad_ton_ha'],
-                        biomass_per_ha['carbon_ton_ha'],
+                        biomass_results['carbon_ton_ha'],
                         calc_id
                     ])
                     
@@ -562,12 +755,14 @@ def api_project_biomass_calculation(request, project_id):
             total_carbon_ton_ha = summary_result[4] if summary_result[4] else 0
             co2_equivalent_ton_ha = total_carbon_ton_ha * 3.67
             
+            zone_message = f' for zone {phy_zone}' if phy_zone is not None else ''
             return JsonResponse({
                 'success': True,
-                'message': f'Biomass calculation completed successfully',
+                'message': f'Biomass calculation completed successfully{zone_message}',
                 'total_trees': len(trees_data),
                 'calculated_trees': calculated_count,
                 'errors_count': len(errors),
+                'phy_zone': phy_zone,
                 'summary': {
                     'total_trees': summary_result[0] if summary_result[0] else 0,
                     'total_biomass': total_carbon_ton_ha,  # Using carbon as proxy for biomass

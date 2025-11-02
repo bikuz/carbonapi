@@ -16,9 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
-    path('analysis_backend/admin/', admin.site.urls),
-    path('analysis_backend/api/inventory/', include('inventory.urls')),
-    path('analysis_backend/api/mrv/', include('mrv.urls')),
-]
+    path(f'{settings.URL_ROOT}admin/', admin.site.urls),
+    path(f'{settings.URL_ROOT}api/inventory/', include('inventory.urls')),
+    path(f'{settings.URL_ROOT}api/mrv/', include('mrv.urls')),
+] 

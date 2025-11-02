@@ -91,7 +91,7 @@ DATABASES = {
     },
     'nfi': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config("POSTGRES_DB"),  # Database for OpenForis imports
+        'NAME': config("POSTGRES_NFI_DB"),  # Database for OpenForis imports
         'USER': config("POSTGRES_USER"),
         # 'PASSWORD': 'P@ssw0rd',
         'PASSWORD': config("POSTGRES_PASSWORD"),
@@ -144,6 +144,8 @@ STATIC_ROOT = BASE_DIR / "static"
 # Media files (Uploaded files)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+URL_ROOT = config("URL_ROOT")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
