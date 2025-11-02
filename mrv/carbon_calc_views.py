@@ -765,7 +765,7 @@ def api_project_biomass_calculation(request, project_id):
                 'phy_zone': phy_zone,
                 'summary': {
                     'total_trees': summary_result[0] if summary_result[0] else 0,
-                    'total_biomass': total_carbon_ton_ha,  # Using carbon as proxy for biomass
+                    'total_biomass':  summary_result[2] if summary_result[2] else 0,  # Using carbon as proxy for biomass
                     'total_carbon': total_carbon_ton_ha,
                     'co2_equivalent': co2_equivalent_ton_ha
                 },
