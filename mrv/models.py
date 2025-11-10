@@ -134,6 +134,7 @@ class Project(models.Model):
                     plot_x REAL,
                     plot_y REAL,
                     phy_zone INTEGER,
+                    province INTEGER,
                     district_code INTEGER,
                     tree_no INTEGER,
                     forest_stand INTEGER,
@@ -186,6 +187,7 @@ class Project(models.Model):
                     total_biom_od_ton_ha REAL,
                     carbon_kg_tree REAL,
                     carbon_ton_ha REAL,
+                    co2_equivalent REAL,
                     ignore BOOLEAN DEFAULT FALSE,
                     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -733,4 +735,31 @@ class Allometric(models.Model):
 
     def __str__(self):
         return f"Allometric - {self.species.species_name} ({self.species.code})"
+
+class Plot(models.Model):
+    """Model for plot data with province information"""
+    plot_id = models.CharField(max_length=50, primary_key=True, help_text="Unique plot identifier")
+    col = models.IntegerField(help_text="Column number")
+    row = models.IntegerField(help_text="Row number")
+    plot_number = models.IntegerField(help_text="Plot number")
+    lon = models.FloatField(help_text="Longitude")
+    lat = models.FloatField(help_text="Latitude")
+    phy_zone = models.IntegerField(null=True, blank=True, help_text="Physiography zone code")
+    province = models.CharField(max_length=255, blank=True, null=True, help_text="Province name")
+    province_id = models.IntegerField(null=True, blank=True, help_text="Province ID")
+    
+    class Meta:
+        db_table = 'plots'
+        verbose_name = 'Plot'
+        verbose_name_plural = 'Plots'
+        ordering = ['plot_id']
+        indexes = [
+            models.Index(fields=['plot_id']),
+            models.Index(fields=['col', 'row']),
+            models.Index(fields=['phy_zone']),
+            models.Index(fields=['province_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.plot_id} - ({self.lat}, {self.lon})"
     

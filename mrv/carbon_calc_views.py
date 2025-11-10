@@ -1,10 +1,12 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import connection
 from django.conf import settings
 import json
 import logging
+import csv
+import io
 from .models import Project, Physiography, ForestSpecies, Allometric
 import math
 
@@ -671,6 +673,8 @@ def api_project_biomass_calculation(request, project_id):
                         height_measured=height_measured
                     )
                     
+                    # Calculate CO2 equivalent (carbon * 44/12 = carbon * 3.67)
+                    co2_equivalent = biomass_results['carbon_ton_ha'] * 44 / 12
                     
                     # Update tree record with biomass calculations
                     cursor.execute("""
@@ -699,6 +703,7 @@ def api_project_biomass_calculation(request, project_id):
                             total_biom_od_ton_ha = %s,
                             carbon_kg_tree = %s,
                             carbon_ton_ha = %s,
+                            co2_equivalent = %s,
                             updated_date = CURRENT_TIMESTAMP
                         WHERE calc_id = %s
                     """, [
@@ -726,6 +731,7 @@ def api_project_biomass_calculation(request, project_id):
                         biomass_results['total_biom_od_ton_ha'],
                         biomass_results['carbon_kg_tree'],
                         biomass_results['carbon_ton_ha'],
+                        co2_equivalent,
                         calc_id
                     ])
                     
@@ -751,9 +757,9 @@ def api_project_biomass_calculation(request, project_id):
             
             summary_result = cursor.fetchone()
             
-            # Calculate CO2 equivalent (carbon * 3.67)
+            # Calculate CO2 equivalent (carbon * 3.67) 44/12
             total_carbon_ton_ha = summary_result[4] if summary_result[4] else 0
-            co2_equivalent_ton_ha = total_carbon_ton_ha * 3.67
+            co2_equivalent_ton_ha = total_carbon_ton_ha * 44 / 12
             
             zone_message = f' for zone {phy_zone}' if phy_zone is not None else ''
             return JsonResponse({
@@ -964,4 +970,85 @@ def api_allometric_models(request):
         
     except Exception as e:
         logger.error(f"Error getting allometric models: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_export_tree_biometric_calc(request, project_id):
+    """Export tree_biometric_calc table to CSV format"""
+    try:
+        project = Project.objects.get(id=project_id)
+        schema_name = project.get_schema_name()
+        
+        with connection.cursor() as cursor:
+            # Set search path to project schema
+            cursor.execute("SET search_path TO %s", [schema_name])
+            
+            # Get all columns from tree_biometric_calc table
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = %s 
+                AND table_name = 'tree_biometric_calc'
+                ORDER BY ordinal_position
+            """, [schema_name])
+            
+            columns = [row[0] for row in cursor.fetchall()]
+            
+            if not columns:
+                return JsonResponse({'success': False, 'error': 'No columns found in tree_biometric_calc table'}, status=500)
+            
+            # Get all data from tree_biometric_calc table (excluding ignored records)
+            # Column names come from database metadata, so they're safe to use
+            # Quote column names to handle any special characters
+            column_list = ', '.join(f'"{col}"' for col in columns)
+            cursor.execute(f"""
+                SELECT {column_list}
+                FROM tree_biometric_calc
+                WHERE ignore = FALSE
+                ORDER BY calc_id
+            """)
+            
+            rows = cursor.fetchall()
+            
+            # Create CSV in memory
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow(columns)
+            
+            # Write data rows
+            for row in rows:
+                # Convert None to empty string and handle special types
+                cleaned_row = []
+                for value in row:
+                    if value is None:
+                        cleaned_row.append('')
+                    elif isinstance(value, (int, float)):
+                        cleaned_row.append(str(value))
+                    else:
+                        cleaned_row.append(str(value))
+                writer.writerow(cleaned_row)
+            
+            # Prepare HTTP response with CSV
+            response = HttpResponse(output.getvalue(), content_type='text/csv')
+            
+            # Sanitize project name for filename (remove invalid characters)
+            project_name = project.name or f'project_{project_id}'
+            # Replace invalid filename characters with underscores
+            safe_project_name = ''.join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in project_name)
+            # Replace spaces with underscores and limit length
+            safe_project_name = safe_project_name.replace(' ', '_')[:50]
+            
+            filename = f'tree_biometric_calc_{safe_project_name}.csv'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            logger.info(f"Exported {len(rows)} records from tree_biometric_calc for project {project_id}")
+            return response
+            
+    except Project.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Project not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error exporting tree_biometric_calc: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

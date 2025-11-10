@@ -68,6 +68,7 @@ urlpatterns = [
     path('projects/<int:project_id>/save-allometric-assignments/', carbon_calc_views.api_save_allometric_assignments, name='api_save_allometric_assignments'),
     path('projects/<int:project_id>/biomass-calculation-status/', carbon_calc_views.api_project_biomass_calculation_status, name='api_project_biomass_calculation_status'),
     path('projects/<int:project_id>/biomass-calculation/', carbon_calc_views.api_project_biomass_calculation, name='api_project_biomass_calculation'),
+    path('projects/<int:project_id>/export-tree-biometric-calc/', carbon_calc_views.api_export_tree_biometric_calc, name='api_export_tree_biometric_calc'),
     
     # Legacy endpoints (commented out for now)
     # path('height-diameter-modeling/', views.height_diameter_modeling, name='height_diameter_modeling'),
