@@ -44,6 +44,10 @@ class DataQualityService:
             logger.info("Step 1: Generating plot codes...")
             plot_code_results = self._generate_plot_codes(check_type, schema_data)
             
+            # Step 1.5: Populate province from plots table
+            logger.info("Step 1.5: Populating province from plots table...")
+            province_results = self._populate_province_from_plots(check_type, schema_data)
+            
             # Step 2: Validate physiography zones
             logger.info("Step 2: Validating physiography zones...")
             phy_zone_results = self._validate_phy_zones(check_type, schema_data)
@@ -204,6 +208,82 @@ class DataQualityService:
                 'title': 'Plot Code Generation',
                 'description': 'Generate plot codes in format "0000-0000-000"',
                 'count': 0,
+                'status': 'error',
+                'error': str(e)
+            }
+    
+    def _populate_province_from_plots(self, check_type: str, schema_data: Optional[Dict] = None) -> Dict[str, Any]:
+        """Populate province field from plots table in public schema"""
+        try:
+            with self.default_connection.cursor() as cursor:
+                cursor.execute(SQL("SET search_path TO {}").format(Identifier(self.schema_name)))
+                
+                # Update province field by matching plot_code with plot_id from public.plots table
+                if check_type == 'selected' and schema_data:
+                    cursor.execute("""
+                        UPDATE tree_biometric_calc t
+                        SET province = p.province_id
+                        FROM public.plots p
+                        WHERE t.plot_code = p.plot_id
+                        AND t.import_id = %s
+                        AND (t.province IS NULL OR t.province = 0)
+                    """, [schema_data.get('import_id')])
+                else:
+                    cursor.execute("""
+                        UPDATE tree_biometric_calc t
+                        SET province = p.province_id
+                        FROM public.plots p
+                        WHERE t.plot_code = p.plot_id
+                        AND (t.province IS NULL OR t.province = 0)
+                    """)
+                
+                updated_count = cursor.rowcount
+                
+                # Count records with missing province (plot_code not found in plots table)
+                if check_type == 'selected' and schema_data:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM tree_biometric_calc t
+                        WHERE t.import_id = %s 
+                        AND t.ignore = FALSE
+                        AND t.plot_code IS NOT NULL
+                        AND t.plot_code != ''
+                        AND NOT EXISTS (
+                            SELECT 1 FROM public.plots p 
+                            WHERE p.plot_id = t.plot_code
+                        )
+                    """, [schema_data.get('import_id')])
+                else:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM tree_biometric_calc t
+                        WHERE t.ignore = FALSE
+                        AND t.plot_code IS NOT NULL
+                        AND t.plot_code != ''
+                        AND NOT EXISTS (
+                            SELECT 1 FROM public.plots p 
+                            WHERE p.plot_id = t.plot_code
+                        )
+                    """)
+                
+                count = cursor.fetchone()[0]
+                
+                return {
+                    'type': 'province',
+                    'title': 'Province Population',
+                    'description': 'Populate province from plots table',
+                    'count': count,
+                    'updated_count': updated_count,
+                    'status': 'pending' if count > 0 else 'completed',
+                    'validation_rules': 'plot_code must exist in public.plots table'
+                }
+                
+        except Exception as e:
+            logger.error(f"Error populating province: {str(e)}")
+            return {
+                'type': 'province',
+                'title': 'Province Population',
+                'description': 'Populate province from plots table',
+                'count': 0,
+                'updated_count': 0,
                 'status': 'error',
                 'error': str(e)
             }

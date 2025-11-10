@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Physiography, ForestSpecies, HDModel, SpeciesHDModelMap, Project
+from .models import Physiography, ForestSpecies, HDModel, SpeciesHDModelMap, Project, Plot
 
 
 class PhysiographyAdmin(admin.ModelAdmin):
@@ -98,9 +98,17 @@ class ProjectAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
+class PlotAdmin(admin.ModelAdmin):
+    list_display = ('plot_id', 'col', 'row', 'plot_number', 'lat', 'lon', 'phy_zone', 'province', 'province_id')
+    list_filter = ('phy_zone', 'province_id')
+    search_fields = ('plot_id', 'col', 'row', 'plot_number', 'province')
+    ordering = ('plot_id',)
+    readonly_fields = ('plot_id',)
+
 # Register your models here.
 admin.site.register(Physiography,PhysiographyAdmin)
 admin.site.register(ForestSpecies,ForestSpeciesAdmin)
 admin.site.register(HDModel,HDModelAdmin)
 admin.site.register(SpeciesHDModelMap,SpeciesHDModelMapAdmin)
 admin.site.register(Project, ProjectAdmin)
+admin.site.register(Plot, PlotAdmin)
