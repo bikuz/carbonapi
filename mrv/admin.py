@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Physiography, ForestSpecies, HDModel, SpeciesHDModelMap, Project, Plot
+from .models import Physiography, ForestSpecies, HDModel, SpeciesHDModelMap, Project, Plot, Allometric
 
 
 class PhysiographyAdmin(admin.ModelAdmin):
@@ -105,6 +105,71 @@ class PlotAdmin(admin.ModelAdmin):
     ordering = ('plot_id',)
     readonly_fields = ('plot_id',)
 
+class AllometricAdmin(admin.ModelAdmin):
+    list_display = (
+        'get_species_code',
+        'get_species_name',
+        'density',
+        'stem_a',
+        'stem_b',
+        'stem_c'
+    )
+    list_filter = ('species',)
+    search_fields = (
+        'species__code',
+        'species__species_name',
+        'species__scientific_name'
+    )
+    ordering = ('species__code',)
+    
+    fieldsets = (
+        ('Species Information', {
+            'fields': ('species', 'density')
+        }),
+        ('Stem Allometric Parameters', {
+            'fields': ('stem_a', 'stem_b', 'stem_c'),
+            'classes': ('collapse',)
+        }),
+        ('Top 10% Allometric Parameters', {
+            'fields': ('top_10_a', 'top_10_b'),
+            'classes': ('collapse',)
+        }),
+        ('Top 20% Allometric Parameters', {
+            'fields': ('top_20_a', 'top_20_b'),
+            'classes': ('collapse',)
+        }),
+        ('Bark Stem Allometric Parameters', {
+            'fields': ('bark_stem_a', 'bark_stem_b'),
+            'classes': ('collapse',)
+        }),
+        ('Bark Top 10% Allometric Parameters', {
+            'fields': ('bark_top_10_a', 'bark_top_10_b'),
+            'classes': ('collapse',)
+        }),
+        ('Bark Top 20% Allometric Parameters', {
+            'fields': ('bark_top_20_a', 'bark_top_20_b'),
+            'classes': ('collapse',)
+        }),
+        ('Branch Allometric Parameters', {
+            'fields': ('branch_s', 'branch_m', 'branch_l'),
+            'classes': ('collapse',)
+        }),
+        ('Foliage Allometric Parameters', {
+            'fields': ('foliage_s', 'foliage_m', 'foliage_l'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_species_code(self, obj):
+        return obj.species.code
+    get_species_code.short_description = 'Species Code'
+    get_species_code.admin_order_field = 'species__code'
+    
+    def get_species_name(self, obj):
+        return obj.species.species_name
+    get_species_name.short_description = 'Species Name'
+    get_species_name.admin_order_field = 'species__species_name'
+
 # Register your models here.
 admin.site.register(Physiography,PhysiographyAdmin)
 admin.site.register(ForestSpecies,ForestSpeciesAdmin)
@@ -112,3 +177,4 @@ admin.site.register(HDModel,HDModelAdmin)
 admin.site.register(SpeciesHDModelMap,SpeciesHDModelMapAdmin)
 admin.site.register(Project, ProjectAdmin)
 admin.site.register(Plot, PlotAdmin)
+admin.site.register(Allometric, AllometricAdmin)
