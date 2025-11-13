@@ -182,7 +182,13 @@ def upload_sql_zip(request):
     # Save uploaded file
     zip_file = request.FILES['zip_file']
     temp_import_id = uuid.uuid4()  # Store the original UUID for temp directory
-    temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_sql_imports', str(temp_import_id))
+    
+    # Ensure the base temp_sql_imports directory exists
+    temp_base_dir = os.path.join(settings.MEDIA_ROOT, 'temp_sql_imports')
+    os.makedirs(temp_base_dir, exist_ok=True)
+    
+    # Create the specific import directory
+    temp_dir = os.path.join(temp_base_dir, str(temp_import_id))
     os.makedirs(temp_dir, exist_ok=True)
     zip_path = os.path.join(temp_dir, zip_file.name)
     
