@@ -998,15 +998,28 @@ def api_export_tree_biometric_calc(request, project_id):
             if not columns:
                 return JsonResponse({'success': False, 'error': 'No columns found in tree_biometric_calc table'}, status=500)
             
-            # Get all data from tree_biometric_calc table (excluding ignored records)
-            # Column names come from database metadata, so they're safe to use
-            # Quote column names to handle any special characters
-            column_list = ', '.join(f'"{col}"' for col in columns)
+            # Build column list, replacing plot_x and plot_y with values from plots table
+            column_list_parts = []
+            for col in columns:
+                if col == 'plot_x':
+                    # Use lon from plots table as plot_x
+                    column_list_parts.append('p.lon AS plot_x')
+                elif col == 'plot_y':
+                    # Use lat from plots table as plot_y
+                    column_list_parts.append('p.lat AS plot_y')
+                else:
+                    # Use original column name with table alias
+                    column_list_parts.append(f't."{col}"')
+            
+            column_list = ', '.join(column_list_parts)
+            
+            # Get all data from tree_biometric_calc table with join to plots table (excluding ignored records)
             cursor.execute(f"""
                 SELECT {column_list}
-                FROM tree_biometric_calc
-                WHERE ignore = FALSE
-                ORDER BY calc_id
+                FROM tree_biometric_calc t
+                LEFT JOIN public.plots p ON t.plot_code = p.plot_id
+                WHERE t.ignore = FALSE
+                ORDER BY t.calc_id
             """)
             
             rows = cursor.fetchall()
