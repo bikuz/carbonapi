@@ -153,9 +153,9 @@ class DataQualityService:
                     cursor.execute("""
                         UPDATE tree_biometric_calc 
                         SET plot_code = CONCAT(
-                            LPAD(COALESCE(plot_col, 0)::TEXT, 4, '0'), '-',
-                            LPAD(COALESCE(plot_row, 0)::TEXT, 4, '0'), '-',
-                            LPAD(COALESCE(plot_number, 0)::TEXT, 3, '0')
+                            LPAD(COALESCE(plot_col, 0)::TEXT, 3, '0'), '-',
+                            LPAD(COALESCE(plot_row, 0)::TEXT, 3, '0'), '-',
+                            LPAD(COALESCE(plot_number, 0)::TEXT, 1, '0')
                         )
                         WHERE import_id = %s AND (plot_code IS NULL OR plot_code = '')
                     """, [schema_data.get('import_id')])
@@ -163,9 +163,9 @@ class DataQualityService:
                     cursor.execute("""
                         UPDATE tree_biometric_calc 
                         SET plot_code = CONCAT(
-                            LPAD(COALESCE(plot_col, 0)::TEXT, 4, '0'), '-',
-                            LPAD(COALESCE(plot_row, 0)::TEXT, 4, '0'), '-',
-                            LPAD(COALESCE(plot_number, 0)::TEXT, 3, '0')
+                            LPAD(COALESCE(plot_col, 0)::TEXT, 3, '0'), '-',
+                            LPAD(COALESCE(plot_row, 0)::TEXT, 3, '0'), '-',
+                            LPAD(COALESCE(plot_number, 0)::TEXT, 1, '0')
                         )
                         WHERE plot_code IS NULL OR plot_code = ''
                     """)
@@ -195,7 +195,7 @@ class DataQualityService:
                 return {
                     'type': 'plot_code',
                     'title': 'Plot Code Generation',
-                    'description': 'Generate plot codes in format "0000-0000-000"',
+                    'description': 'Generate plot codes in format "000-000-0"',
                     'count': count,
                     'status': 'pending' if count > 0 else 'completed',
                     'validation_rules': 'plot_col, plot_row, plot_number must be > 0'
@@ -206,7 +206,7 @@ class DataQualityService:
             return {
                 'type': 'plot_code',
                 'title': 'Plot Code Generation',
-                'description': 'Generate plot codes in format "0000-0000-000"',
+                'description': 'Generate plot codes in format "000-000-0"',
                 'count': 0,
                 'status': 'error',
                 'error': str(e)
