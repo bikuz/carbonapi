@@ -2265,10 +2265,17 @@ def merge_multiple_schemas_optimized(source_schemas, target_schema, create_new_s
                             cursor.execute(target_create_sql)
                             created_tables.append(table)
                             
-                            # Cache target table columns
+                            # Cache target table columns using the same cursor (within transaction)
                             target_cache_key = f"{target_schema}.{table}"
                             if target_cache_key not in table_columns_cache:
-                                target_columns = get_table_columns(target_schema, table)
+                                # Query columns directly using the existing cursor to see uncommitted tables
+                                cursor.execute("""
+                                    SELECT column_name, data_type, is_nullable, column_default
+                                    FROM information_schema.columns 
+                                    WHERE table_schema = %s AND table_name = %s
+                                    ORDER BY ordinal_position
+                                """, (target_schema, table))
+                                target_columns = cursor.fetchall()
                                 table_columns_cache[target_cache_key] = [col[0] for col in target_columns]
                             
                     except Exception as e:
@@ -2286,10 +2293,17 @@ def merge_multiple_schemas_optimized(source_schemas, target_schema, create_new_s
                     if table not in target_tables:
                         return False, f"Table '{table}' does not exist in target schema '{target_schema}'. Cannot merge into existing schema.", None
                     
-                    # Cache target table columns
+                    # Cache target table columns using the same cursor (within transaction)
                     target_cache_key = f"{target_schema}.{table}"
                     if target_cache_key not in table_columns_cache:
-                        target_columns = get_table_columns(target_schema, table)
+                        # Query columns directly using the existing cursor
+                        cursor.execute("""
+                            SELECT column_name, data_type, is_nullable, column_default
+                            FROM information_schema.columns 
+                            WHERE table_schema = %s AND table_name = %s
+                            ORDER BY ordinal_position
+                        """, (target_schema, table))
+                        target_columns = cursor.fetchall()
                         table_columns_cache[target_cache_key] = [col[0] for col in target_columns]
                 
                 print(f"Validated {len(all_tables)} existing tables")
