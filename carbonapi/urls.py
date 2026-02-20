@@ -19,6 +19,10 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+admin.site.site_header = 'Forest Biometric Admin Panel'
+admin.site.site_title = 'Forest Biometric Admin Panel'
+admin.site.index_title = 'Welcome to Forest Biometric Admin Panel'
+
 urlpatterns = [
     path(f'{settings.URL_ROOT}admin/', admin.site.urls),
     path(f'{settings.URL_ROOT}api/inventory/', include('inventory.urls')),
